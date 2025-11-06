@@ -1,5 +1,11 @@
 # aegisui/config.py
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+dotenv_path = Path(__file__).resolve().parents[1] / ".env"
+print(dotenv_path)
+load_dotenv(dotenv_path)
 
 def load_config():
     cfg = {
