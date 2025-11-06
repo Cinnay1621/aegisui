@@ -1,0 +1,45 @@
+<!-- aegisui/templates/base.html -->
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ APP_NAME }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for('dashboard') }}">{{ APP_NAME }}</a>
+      <div class="collapse navbar-collapse">
+		  <ul class="navbar-nav ms-auto">
+			{% if g.get('user') %}
+			  <li class="nav-item">
+				<span class="nav-link disabled" aria-disabled="true" style="color:#fff;">
+				  Eingeloggt als <strong>{{ g.user.username }}</strong> ({{ g.user.role }})
+				</span>
+			  </li>
+			  {% if g.user.role == 'admin' %}
+			  <li class="nav-item">
+				<a class="nav-link" href="{{ url_for('admin_users') }}">Benutzerverwaltung</a>
+			  </li>
+			  {% endif %}
+			  <li class="nav-item">
+				<a class="nav-link" href="{{ url_for('logout') }}">Abmelden</a>
+			  </li>
+			{% else %}
+			  <li class="nav-item">
+				<a class="nav-link" href="{{ url_for('login') }}">Anmelden</a>
+			  </li>
+			{% endif %}
+		  </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

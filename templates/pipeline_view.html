@@ -1,0 +1,123 @@
+<!-- aegisui/templates/pipeline_view.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h3 class="card-title mb-3">Pipeline: {{ pipeline['name'] }}</h3>
+    <p><strong>Playbook:</strong> {{ pipeline['playbook_path'] }}</p>
+    <p><strong>Inventory:</strong> {{ pipeline['inventory_path'] }}</p>
+    <p><strong>Extra Vars:</strong> {{ (pipeline['extra_vars_path'] or '—') }}</p>
+
+	<!-- Historie -->
+	<h4>Historie</h4>
+	<table class="table table-sm table-striped">
+	  <thead><tr><th>Job</th><th>Status</th><th>Started</th><th>Ended</th></tr></thead>
+	  <tbody id="history-body">
+		{% for j in jobs %}
+		<tr>
+		  <td>#{{ j['id'] }}</td>
+		  <td>{{ j['status'] }}</td>
+		  <td>{{ j['started_at'] }}</td>
+		  <td>{{ j['ended_at'] }}</td>
+		</tr>
+		{% endfor %}
+	  </tbody>
+	</table>
+
+	<script>
+		function refreshHistory(){
+		  fetch('{{ url_for("pipeline_jobs_json", pipeline_id=pipeline["id"]) }}')
+			.then((res) => {
+			  if (!res.ok) return [];
+			  return res.json();
+			})
+			.then((data) => {
+			  const tbody = document.getElementById('history-body');
+			  if (!tbody) return;
+			  let html = '';
+			  data.forEach((j) => {
+				html += '<tr>';
+				html += '<td>#' + j.id + '</td>';
+				html += '<td>' + j.status + '</td>';
+				html += '<td>' + (j.started_at || '') + '</td>';
+				html += '<td>' + (j.ended_at || '') + '</td>';
+				html += '</tr>';
+			  });
+			  tbody.innerHTML = html;
+			});
+		}
+
+		// Initiales Laden und regelmäßiges Aktualisieren (alle 5 Sekunden)
+		document.addEventListener('DOMContentLoaded', function(){
+		  refreshHistory();
+		  setInterval(refreshHistory, 5000);
+		});
+	</script>
+
+    <hr>
+    <div class="row mb-3">
+      <div class="col">
+        <form method="post" action="{{ url_for('start_job', pipeline_id=pipeline['id']) }}">
+		  <button class="btn btn-primary" {% if user and user.role == 'guest' %}disabled{% endif %}>Neue Ausführung starten</button>
+        </form>
+      </div>
+      <div class="col">
+        <a class="btn btn-secondary" href="{{ url_for('pipeline_schedule', pipeline_id=pipeline['id']) }}">Zeitplan verwalten</a>
+      </div>
+      <div class="col">
+        {% if versions %}
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Versionen ({{ versions|length }})
+          </button>
+          <ul class="dropdown-menu">
+            {% for v in versions %}
+            <li class="dropdown-item">
+              Version {{ v['version'] }} - {{ v['name'] }} ({{ v['created_at'] }})
+              <form method="post" action="{{ url_for('pipeline_version_rollback', pipeline_id=pipeline['id'], version=v['version']) }}" style="display:inline;">
+                <button class="btn btn-sm btn-link" type="submit" onclick="return confirm('Rollback auf Version {{ v['version'] }}?')">Rollback</button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <h4>Live-Log</h4>
+    <div class="card mb-3" style="min-height:180px;">
+      <div class="card-body p-2" style="background:#000; color:#0f0;">
+        <pre id="log-area" class="mb-0" style="white-space: pre-wrap; color:#0f0;"></pre>
+      </div>
+    </div>
+    {% if jobs|length > 0 %}
+    <button class="btn btn-info" onclick="startLiveLog({{ jobs[0]['id'] }})">Live-Log stream für aktuell letzte Ausführung starten</button>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function startLiveLog(jobId){
+  if (!('EventSource' in window)){
+    alert('Live-Log-Streaming wird von Ihrem Browser nicht unterstützt.');
+    return;
+  }
+  const logArea = document.getElementById('log-area');
+  logArea.textContent = '';
+  const es = new EventSource('/logs/' + jobId + '/stream');
+  es.onmessage = function(e){
+    if (e.data === "[END]") {
+      es.close();
+      return;
+    }
+    // SSE sendet "data: ...\n\n"
+    logArea.textContent += e.data + "\n";
+    logArea.scrollTop = logArea.scrollHeight;
+  };
+  es.onerror = function(){
+    es.close();
+  };
+}
+</script>
+{% endblock %}
